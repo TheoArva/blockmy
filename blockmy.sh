@@ -94,8 +94,8 @@ CameraStatus() {
 
 mute_install_n_remove_configs() {
 
-	actions=("install" "remove")
-	modules=("uas" "usb_storage")
+	local actions=("install" "remove")
+	local modules=("$@")
 
 	for action in "${actions[@]}"
 	do
@@ -103,22 +103,36 @@ mute_install_n_remove_configs() {
 		do
 			while IFS= read -r file
 			do
-				if sudo sed -i -E "s/(#|\s)*$action\s*$module/#$action $module/gI" "$file"
+				if sudo sed -i -E "s/(\s)*$action\s*$module/#$action $module/gI" "$file"
 				then
 					printf "%s found and muted.\n" "$file"
 					printf "%s found and muted.\nNecessary to maintain system stability with 'blockmy'.\n" "$file"
-				else
-					echo "skata"
 				fi
-			done < <(grep -ilE "($action\s*$module)" /etc/modprobe.d/*.conf | sort -u)
+			done < <(grep -ilE "^(\s*$action\s*$module\s*)" /etc/modprobe.d/*.conf | sort -u)
 		done
 	done
 
 }
 
-usb_storage_block_ON() {
+mute_other_possible_blacklist_usb_rules() {
 
-	if [[ -z "$DevName"  ]]
+	local modules=("$@")
+
+	for module in "${modules[@]}"
+	do
+		while IFS= read -r file
+		do
+			sudo sed -i -E "s/(\s)*blacklist\s*$module/#blacklist $module/gI" "$file"
+		done < <(grep -ilE "^(\s*blacklist\s*$module\s*)" /etc/modprobe.d/*.conf --exclude="$CustomBlacklistFilePath" | sort -u)
+	done
+
+}
+
+usb_storage_block_on() {
+
+	local modules=("uas" "usb_storage")
+
+	if [[ -z "$DevName" ]]
 	then
 		printf "No USB storage devices found. Nothing to do.\n";
 	else
@@ -144,32 +158,26 @@ usb_storage_block_ON() {
 			done <<< "$DevNameNo"
 	fi
 
-	mute_install_n_remove_configs
+	mute_install_n_remove_configs "${modules[@]}"
 
-	if [ ! -e $CustomBlacklistFilePath ] && [ ! -s $CustomBlacklistFilePath ]
+	if [[ ! -e $CustomBlacklistFilePath ]] && [[ ! -s $CustomBlacklistFilePath ]]
 	then
 		printf "#Block my USB Storage Devices\nblacklist uas\nblacklist usb_storage\n" | sudo tee -a $CustomBlacklistFilePath &> /dev/null
 	fi
 
-	for module in uas usb_storage
-	do
-		while IFS= read -r file
-		do
-			sudo sed -i -E "s/(#|\s)*blacklist\s*$module/#blacklist $module/gI" "$file"
-		done < <(grep -ilE "(blacklist\s$module)" /etc/modprobe.d/*.conf --exclude="$CustomBlacklistFilePath" | sort -u)
-	done
+	mute_other_possible_blacklist_usb_rules "${modules[@]}"
 
-	for module in uas usb_storage
+	for module in "${modules[@]}"
 	do
 		while IFS= read -r file
 		do
-			sudo sed -i -E "s/(#|\s)*blacklist\s*$module/blacklist $module/gI" "$file"
-		done < <(grep -ilE "(blacklist\s$module)" $CustomBlacklistFilePath)
+			sudo sed -i -E "s/(#)+(\s)*blacklist\s*$module\s*/blacklist $module/gI" "$file"
+		done < <(grep -ilE "(blacklist\s*$module)" $CustomBlacklistFilePath)
 	done
 
 	if lsmod | grep -E "\b(uas|usb_storage)\b" &> /dev/null
 	then
-		for module in uas usb_storage
+		for module in "${modules[@]}"
 		do
     			if sudo modprobe -r "$module" &> /dev/null
     			then
@@ -183,53 +191,46 @@ usb_storage_block_ON() {
     			fi
 		done
 	else
-		printf "No kernel modules found running about USB Storage devices...\n"
+		printf "No kernel modules found running about USB Storage devices.\n"
 	fi
 }
 
-USBStorageBlockOff() {
+usb_storage_block_off() {
 
-	if ! lsmod | grep -E "(\buas\b)|(\busb_storage\b)" &> /dev/null
+	local modules=("uas" "usb_storage")
+
+	if ! lsmod | grep -E "\b(uas|usb_storage)\b" &> /dev/null
 	then
-		sudo modprobe usb_storage &> /dev/null;
-		sudo modprobe uas &> /dev/null
-		printf "USB Storage UN-blocked, successfully...\n";
+		for module in uas usb_storage
+		do
+    			if sudo modprobe "$module" &> /dev/null
+    			then
+        			printf "%s loaded successfully.\n" "$module"
+    			elif ! lsmod | grep -E "\b($module)\b" &> /dev/null
+    			then
+        			printf "Failed to load %s.\n" "$module"
+        			exit 1
+    			else
+        			printf "%s was already loaded.\n" "$module"
+    			fi
+		done
 	else
-		printf "Kernel modules found running about USB Storage devices...\n"
+		printf "Modules about USB Storage devices already running.\n"
 	fi
 
-	if grep -iRE "\b(uas|usb_storage)\b" /etc/modprobe.d/ &> /dev/null
-	then
-		if grep -iE "(#|\s)*(blacklist\s+uas)+" $BlacklistFile &> /dev/null
-		then
-			sudo sed -i -E 's/(#|\s)*blacklist(#|\s)*uas/blacklist uas/gI' $BlacklistFile &> /dev/null;
-				if grep -iE "(#|\s)*(blacklist\s+us:b_storage)+" $BlacklistFile &> /dev/null
-				then
-					sudo sed -i -E 's/(#|\s)*blacklist(#|\s)*usb_storage/blacklist usb_storage/gI' $BlacklistFile &> /dev/null
-				else
-					printf "# Block my USB-StorageDevices\nblacklist usb_storage" | sudo tee -a $BlacklistFile &> /dev/null
-				fi
-			printf "$BlacklistFile updated successfully...\nUSB Storage devices will remain UN-blocked among boot times...\n";
-			return 0
-		elif grep -iE "(#|\s)*(blacklist\s+usb_storage)+" $BlacklistFile &> /dev/null
-		then
-			sudo sed -i -E 's/(#|\s)*blacklist(#|\s)*usb_storage/blacklist usb_storage/gI' $BlacklistFile &> /dev/null
-				if grep -iE "(#|\s)*(blacklist\s+uas)+" $BlacklistFile &> /dev/null
-				then
-					sudo sed -i -E 's/(#|\s)*blacklist(#|\s)*uas/blacklist uas/gI' $BlacklistFile &> /dev/null
-				else
-					printf "# Block my USB-StorageDevices\nblacklist uas" | sudo tee -a $BlacklistFile &> /dev/null;
-					return 0
-				fi
-		fi
-	else
-		printf "No USB Storage device configuration files found about blocking/unblocking them...\n"
+	mute_other_possible_blacklist_usb_rules "${modules[@]}"
 
-	fi
+	for module in "${modules[@]}"
+	do
+		while IFS= read -r file
+		do
+			sudo sed -i -E "s/(\s)*(#)+(\s)*blacklist\s*$module\s*/#blacklist $module/gI" "$file"
+		done < <(grep -ilE "((#)+\s*blacklist\s*$module)" $CustomBlacklistFilePath)
+	done
 
 }
 
-USBStorageStatus() {
+usb_storage_status() {
 
 	if lsmod | grep -E "(\buas\b)" &> /dev/null
 	then
@@ -277,10 +278,10 @@ then
 	usb_storage_block_ON
 elif [[ $1 = "usbstor" ]] && [[ $2 = "-off" ]]
 then
-	USBStorageBlockOff	
+	usb_storage_block_off	
 elif [[ $1 = "usbstor" ]] && [[ $2 = "--status" ]]
 then
-	USBStorageStatus
+	usb_storage_status
 elif [[ $1 =~ ^"--help"$ ]] || [[ $1 =~ ^"-h"$ ]]
 then
 	printf "Usage: blokmy [DEVICE]... [OPTION]...\n\nBlocks USB Storage and/or Camera\n\nDEVICE:\n \n   camera\n \n   usbstor\n\nOPTION:\n \n  -on\t block DEVICE\n \n  -off\t unblock DEVICE\n \n  --status\t DEVICE's current block status\n \n  -h, --help\t Show this message\n\ne.g.  blokmy camera -on,  blockmy usbstor --status\n\n"
@@ -298,7 +299,9 @@ unset DevName;
 unset DevNameNo;
 
 
-#CustomBlacklistFilePath="/etc/modprobe.d/custom-blacklist.conf"
+#!/bin/bash
+
+CustomBlacklistFilePath="/etc/modprobe.d/custom-blacklist.conf"
 
 # Function to mute specific module lines in modprobe config
 MuteModuleConfigs() {
