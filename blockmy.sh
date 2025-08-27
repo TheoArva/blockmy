@@ -232,11 +232,43 @@ usb_storage_block_off() {
 
 usb_storage_status() {
 
-	if lsmod | grep -E "(\buas\b)" &> /dev/null
+local module
+
+local module_block
+
+	if lsmod | grep -E "\b(uas)\b" &> /dev/null
 	then
-		if grep -E "^(#blacklist\suas)$" $BlacklistFile &> /dev/null
-		then
-			printf "USB Storage devices are UN-blocked, and will remain among boot times...\n"
+  module="loaded"
+ elif ! lsmod | grep -E "\b(uas)\b" &> /dev/null
+ then
+  module="unloaded"
+ fi
+
+	if grep -E "^((\s)*(#)+(\s)*blacklist(\s)*uas(\s)*)$" /etc/modprobe.d/*.conf &> /dev/null
+	 then
+		 module_block="unblocked"
+ elif grep -E "^((\s)*blacklist(\s)*uas(\s)*)$" /etc/modprobe.d/*.conf &> /dev/null
+ then
+  module_block="blocked"
+ else
+  module_block="configless"
+ fi
+
+case "$module:$module_block" in
+ loaded:blocked)
+  printf "test1"
+  ;;
+ loaded:unblocked|loaded:configless)
+  printf "test2"
+  ;;
+ unloaded:blocked)
+  printf "test3"
+  ;;
+ unloaded:unblocked|unloaded:configless)
+  print "test4"
+  ;;
+esac
+
 		elif grep -E "^(blacklist\suas)$" $BlacklistFile &> /dev/null
 		then
 			printf "USB Storage devices are UN-blocked, but will NOT persist among boot times...\n"
