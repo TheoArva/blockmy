@@ -17,24 +17,24 @@ along with this program.  If not, see [https://www.gnu.org/licenses/](https://ww
 
 Email: *theodorosarv@gmail.com*
 
-## blockmy ##
+## blockmy
 
 This is a script written in Shell/Bash, which allows user to:
 
 * Block & Unblock their integrated Camera and/or USB external Storage
 
-**Usage:**
+### Usage:
 
 blockmy [DEVICE] [OPTION]
 
 **DEVICE:**
  
-> camera
-> usbstor
+* camera
+* usbstor
 
 **OPTION:**
  
- * -on	    *blocks DEVICE*
+*  -on	    *blocks DEVICE*
  
 *  -off	    *unblocks DEVICE*
  
