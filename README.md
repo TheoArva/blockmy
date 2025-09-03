@@ -23,7 +23,9 @@ This is a script written in Shell/Bash, which allows user to:
 
 * Block & Unblock their integrated Camera and/or USB external Storage
 
-* Usage: blockmy [DEVICE]... [OPTION]...
+# Usage: #
+
+blockmy [DEVICE]... [OPTION]...
 
 DEVICE:
  
