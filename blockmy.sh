@@ -291,7 +291,7 @@ usb_storage_block_off() { #1.load uas/usb_storage modules #2.modify "/etc/custom
 
 }
 
-usb_storage_status() {
+usb_storage_status() { #1.check for modules status #2.check for "/etc/modprobe.d/custom-blacklist.conf" file's content
 
 	local module
 	local module_block
