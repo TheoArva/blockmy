@@ -23,16 +23,16 @@ This is a script written in Shell/Bash, which allows user to:
 
 * Block & Unblock their integrated Camera and/or USB external Storage
 
-# Usage: #
+**Usage:**
 
 blockmy [DEVICE] [OPTION]
 
-# DEVICE:
+**DEVICE:**
  
-* camera
-* usbstor
+> camera
+> usbstor
 
-# OPTION:
+**OPTION:**
  
  * -on	    *blocks DEVICE*
  
