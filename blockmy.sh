@@ -12,7 +12,7 @@ CustomBlacklistFilePath="/etc/modprobe.d/custom-blacklist.conf"
 
 ## START-of-Camera block/unblock configuration
 
-camera_main() {
+camera_main() { #1.Check for existing camera #2.Check for existing camera block/unblock configuration in /etc/udev/rules.d/
 	
 	if lsusb | grep -iE "camera|uvc|webcam" &> /dev/null
 	then
@@ -39,7 +39,7 @@ camera_main() {
 
 }
 
-camera_block_on() {
+camera_block_on() { #block camera creating/modifying "/etc/udev/rules.d/99-disable-integrated-webcam.rules" file w/ custom rule
 
 	camera_main
 
@@ -64,9 +64,10 @@ camera_block_on() {
 	
 }
 
-camera_block_off() {
+camera_block_off() { #unblock camera modifying "/etc/udev/rules.d/99-disable-integrated-webcam.rules" file
 
 	camera_main
+
 
 	case "$usb_device:$custom_rule" in
 		detected:on)
@@ -84,7 +85,7 @@ camera_block_off() {
 
 }
 
-camera_status() {
+camera_status() { #check camera block/unblock status
 
 	camera_main
 
@@ -106,10 +107,12 @@ camera_status() {
 
 ### START-of-Storage-Devices block/unblock configuration
 
-mute_install_n_remove_configs() {
+mute_install_n_remove_configs() { #comment out any existing install/remove uas/usb_storage configuration interfering
 
 	local actions=("install" "remove")
 	local modules=("$@")
+	local check_InstallRemove_status=false
+
 
 	for action in "${actions[@]}"
 	do
@@ -119,15 +122,26 @@ mute_install_n_remove_configs() {
 			do
 				if sudo sed -i -E "s/^.*\b$action\s*$module\b.*$/#$action $module/gI" "$file"
 				then
-					printf "found %s file and muted any $action elements.\nNecessary to maintain system stability with 'blockmy'.\n" "$file"
+					printf "found %s file and muted any $action elements.Necessary to maintain system stability with 'blockmy'.\n" "$file"
+					check_InstallRemove_status=true
 				fi
 			done < <(grep -ilE "^((\s)*$action(\s)*$module)" /etc/modprobe.d/*.conf | sort -u)
 		done
 	done
 
+
+	if [[ $check_InstallRemove_status == true ]]
+	then
+		if which update-initramfs
+		then
+			sudo update-initramfs -u
+			printf "initramfs was updated to allow changes take effect.\nA system reboot may be required.\n"
+		fi
+	fi
+
 }
 
-mute_other_possible_blacklist_usb_rules() {
+mute_other_possible_blacklist_usb_rules() { #comment out any existing blacklist uas/usb_storage *.conf files interfering
 
 	local modules=("$@")
 
@@ -144,13 +158,15 @@ mute_other_possible_blacklist_usb_rules() {
 
 }
 
-usb_storage_block_on() {
+usb_storage_block_on() { #1. unmount connected ext storage #2. power it/them off #3. unload uas/usb_storage modules #4.create "/etc/modprobe.d/blacklist.conf" w/ custom block rules
 
 	local modules=("uas" "usb_storage")
+	local check_block_status=false
+
 
 	if [[ -z "$DevName" ]]
 	then
-		printf "No connected USB storage devices found.\n";
+		check_block_status=false
 	else
 		while IFS= read -r file
 		do
@@ -162,6 +178,7 @@ usb_storage_block_on() {
 				exit 1
 			fi
 		done <<< "$DevNameNo"
+		
 		while IFS= read -r file
 		do
 			if udisksctl power-off -b /dev/$file
@@ -174,14 +191,18 @@ usb_storage_block_on() {
 		done <<< "$DevNameNo"
 	fi
 
+
 	mute_install_n_remove_configs "${modules[@]}"
+
 
 	if [[ ! -e $CustomBlacklistFilePath ]] && [[ ! -s $CustomBlacklistFilePath ]]
 	then
 		printf "#Block my USB Storage Devices\nblacklist uas\nblacklist usb_storage\n" | sudo tee -a $CustomBlacklistFilePath &> /dev/null
 	fi
 
+
 	mute_other_possible_blacklist_usb_rules "${modules[@]}"
+
 
 	for module in "${modules[@]}"
 	do
@@ -190,6 +211,7 @@ usb_storage_block_on() {
 			sudo sed -i -E "s/(\s)*(#)+(\s)*blacklist(\s)*$module/blacklist $module/gI" "$file"  
 		done < <(grep -ilE "^((\s)*(#)+(\s)*blacklist(\s)*$module)" $CustomBlacklistFilePath)
 	done
+
 
 	if lsmod | grep -E "\b(uas|usb_storage)\b" &> /dev/null
 	then
@@ -207,13 +229,24 @@ usb_storage_block_on() {
     			fi
 		done
 	else
-		printf "No running modules found about USB Storage Devices.\nUse --status to check usbstor block status.\n"
+		check_block_status=true
 	fi
+
+	
+	if [[ $check_block_status == true ]]
+	then
+		printf "USB Storage Devices are already blocked.\n"
+	else
+		printf "USB Storage Devices blocked successfully.\n"
+	fi
+
 }
 
-usb_storage_block_off() {
+usb_storage_block_off() { #1.load uas/usb_storage modules #2.modify "/etc/custom-blacklist.conf" file
 
 	local modules=("uas" "usb_storage")
+	local check_unblock_status=false
+
 
 	if ! lsmod | grep -E "\b(uas|usb_storage)\b" &> /dev/null
 	then
@@ -221,17 +254,17 @@ usb_storage_block_off() {
 		do
     			if sudo modprobe "$module" &> /dev/null
     			then
-        			printf "%s loaded successfully.\n" "$module"
+        			printf "%s module loaded successfully.\n" "$module"
     			elif ! lsmod | grep -E "\b($module)\b" &> /dev/null
     			then
-        			printf "Failed to load %s.\n" "$module"
+        			printf "Failed to load %s module.\n" "$module"
         			exit 1
     			else
-        			printf "%s was already loaded.\n" "$module"
+        			printf "%s module was already loaded.\n" "$module"
     			fi
 		done
 	else
-		printf "Modules about USB Storage devices already running.\n"
+		check_unblock_status=true
 	fi
 
 
@@ -248,12 +281,21 @@ usb_storage_block_off() {
 		done < <(grep -ilE "^((\s)*blacklist(\s)*$module)" $CustomBlacklistFilePath)
 	done
 
+
+	if [[ $check_unblock_status == true ]]
+	then
+		printf "USB Storage Devices are already unblocked.\n"
+	else	
+		printf "USB Storage Devices unblocked successfully.\n"
+	fi
+
 }
 
 usb_storage_status() {
 
 	local module
 	local module_block
+
 
 	if lsmod | grep -E "\b(uas)\b" &> /dev/null
 	then
@@ -294,7 +336,9 @@ usb_storage_status() {
 
 ### END-of-USB-Storage-Devices block/unblock configuration
 
-#### START-of-OPTIONS-ARGS
+#### START-of-ARGS-OPTIONS
+
+#finalizing x2 ARGS = camera, usbstor AND x5 OPTIONS = -on, -off, --status, -h, --help
 
 case "$1:$2" in
 	"camera:-on")
@@ -323,7 +367,7 @@ case "$1:$2" in
 		;;
 esac
 
-#### END-of-OPTIONS-ARGS
+#### END-of-ARGS-OPTIONS
 
-# Remove all variables exported to Shell before exiting script
+# Remove all global variables exported to Shell before exiting script
 unset CamVendorID CamProductID CamRulesFile DevName DevNameNo custom_rule usb_device
