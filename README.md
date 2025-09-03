@@ -25,22 +25,21 @@ This is a script written in Shell/Bash, which allows user to:
 
 # Usage: #
 
-blockmy [*DEVICE*] [*OPTION*]
+blockmy [DEVICE] [OPTION]
 
-*DEVICE:*
+# DEVICE:
  
 * camera
 * usbstor
 
-*OPTION:*
+# OPTION:
  
-  -on	 *blocks DEVICE*
+ * -on	    *blocks DEVICE*
  
-  -off	 *unblocks DEVICE*
+*  -off	    *unblocks DEVICE*
  
-  --status	 *DEVICE's current block status*
+*  --status	   *DEVICE's current block status*
  
-  -h, --help	 *for this info*
+*  -h, --help	   *for this info*
 
-e.g.  blockmy camera -on,  blockmy usbstor --status
-
+*e.g.  blockmy camera -on,  blockmy usbstor --status*
