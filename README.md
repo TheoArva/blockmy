@@ -23,12 +23,23 @@ This is a script written in Shell/Bash, which allows user to:
 
 * Block & Unblock their integrated Camera and/or USB external Storage
 
+* Usage: blockmy [DEVICE]... [OPTION]...
 
+DEVICE:
+ 
+   camera
+ 
+   usbstor
 
-4. Follow the instructions that appear about how to run the makefile for installation.[^2]
+OPTION:
+ 
+  -on	 block DEVICE
+ 
+  -off	 unblock DEVICE
+ 
+  --status	 DEVICE's current block status
+ 
+  -h, --help	 Show this message
 
-5. Once installation is complete, type:
+e.g.  blockmy camera -on,  blockmy usbstor --status
 
-   endec -h[^1]
-
-   for more information about available [OPTIONS]...
