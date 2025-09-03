@@ -21,27 +21,9 @@ Email: *theodorosarv@gmail.com*
 
 This is a script written in Shell/Bash, which allows user to:
 
-* Block & Unblock their integrated Camera and/or USB external Storage *
+* Block & Unblock their integrated Camera and/or USB external Storage
 
-## Requirements:
 
-- **tar**
-- **gpg** 
-- **make**[^3]
-
-  must be installed on system.
-
-## How to start:
-
-1. Download ***endec.sh*** & ***makefile*** to your computer.
-
-2. Open Terminal & use **cd** command to go to the directory, where the files above are saved.
-
-3. Type: 
-
-   bash endec.sh[^1]
-
-   and hit Enter.
 
 4. Follow the instructions that appear about how to run the makefile for installation.[^2]
 
