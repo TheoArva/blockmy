@@ -328,14 +328,11 @@ usb_storage_status() { #1.check for modules status #2.check for "/etc/modprobe.d
 		loaded:blocked)
 			printf "USB Storage Devices are NOT blocked, but they will be blocked after system reboot.\n"
 			;;
-		loaded:unblocked|loaded:configless)
+		loaded:unblocked|loaded:configless|unloaded:unblocked|unloaded:configless)
 			printf "USB Storage Devices are NOT blocked, and they will remain unblocked after system reboot.\n"
 			;;
 		unloaded:blocked)
 			printf "USB Storage devices are blocked, and will remain blocked after system reboot.\n"
-			;;
-		unloaded:unblocked|unloaded:configless)
-			printf "USB Storage devices are blocked, but they will NOT be blocked after system reboot.\n"
 			;;
 	esac
 
