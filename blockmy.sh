@@ -7,6 +7,8 @@
 #You should have received a copy of the GNU General Public License along with this program. If not, see https://www.gnu.org/licenses/
 #Email: theodorosarv@gmail.com
 
+#!/bin/bash
+
 # Global variables for Camera block/unblock configuration
 CamVendorID=$(lsusb | grep -iE "camera|uvc|webcam" | awk '{print $6}' | cut -d ':' -f 1)
 CamProductID=$(lsusb | grep -iE "camera|uvc|webcam" | awk '{print $6}' | cut -d ':' -f 2)
@@ -41,8 +43,8 @@ camera_main() { #1.Check for existing camera #2.Check for existing camera block/
 
 	while IFS= read -r file
 	do
-		sudo sed -i "s|^.*ATTR{idVendor}==\"$CamVendorID\",\s*ATTR{idProduct}==\"$CamProductID\",\s*ATTR{authorized}=\"[0-9]\".*$|#ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"0\"|gI" "$file" &> /dev/null;
-	done < <( grep -ilE "(ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"[0-9]\")" /etc/udev/rules.d/*.rules &> /dev/null | sort -u)
+		sed -i "s|^.*ATTR{idVendor}==\"$CamVendorID\",\s*ATTR{idProduct}==\"$CamProductID\",\s*ATTR{authorized}=\"[0-9]\".*$|#ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"0\"|gI" "$file" &> /dev/null;
+	done < <( grep -ilE "(ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"[0-9]\")" /etc/udev/rules.d/*.rules 2> /dev/null | sort -u)
 
 }
 
@@ -55,13 +57,13 @@ camera_block_on() { #block camera creating/modifying "/etc/udev/rules.d/99-disab
 			printf "Camera is already blocked.\n"
 			;;
 		detected:off)
-			sudo sed -i "s|ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"1\"|ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"0\"|" "$CamRulesFile" &> /dev/null;
-			sudo udevadm control --reload && sudo udevadm trigger
+			sed -i "s|ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"1\"|ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"0\"|" "$CamRulesFile" &> /dev/null;
+			udevadm control --reload && udevadm trigger
 			printf "Camera blocked, successfully.\n"
 			;;
 		detected:configless)
-			printf "ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"0\"\n" | sudo tee /etc/udev/rules.d/99-disable-integrated-webcam.rules &> /dev/null
-			sudo udevadm control --reload && sudo udevadm trigger
+			printf "ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"0\"\n" | tee /etc/udev/rules.d/99-disable-integrated-webcam.rules &> /dev/null
+			udevadm control --reload && udevadm trigger
 			printf "Camera blocked successfully.\n"
 			;;
 		undetected:on|undetected:off|undetected:configless)
@@ -78,8 +80,8 @@ camera_block_off() { #unblock camera modifying "/etc/udev/rules.d/99-disable-int
 
 	case "$usb_device:$custom_rule" in
 		detected:on)
-			sudo sed -i "s|ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"0\"|ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"1\"|" "$CamRulesFile" &> /dev/null;
-			sudo udevadm control --reload && sudo udevadm trigger
+			sed -i "s|ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"0\"|ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"1\"|" "$CamRulesFile" &> /dev/null;
+			udevadm control --reload && udevadm trigger
 			printf "Camera unblocked successfully.\n"
 			;;
 		detected:off|detected:configless)
@@ -127,7 +129,7 @@ mute_install_n_remove_configs() { #comment out any existing install/remove uas/u
 		do
 			while IFS= read -r file
 			do
-				if sudo sed -i -E "s/^.*\b$action\s*$module\b.*$/#$action $module/gI" "$file"
+				if sed -i -E "s/^.*\b$action\s*$module\b.*$/#$action $module/gI" "$file"
 				then
 					printf "found %s file and muted any $action elements.Necessary to maintain system stability with 'blockmy'.\n" "$file"
 					check_InstallRemove_status=true
@@ -141,7 +143,7 @@ mute_install_n_remove_configs() { #comment out any existing install/remove uas/u
 	then
 		if which update-initramfs
 		then
-			sudo update-initramfs -u
+			update-initramfs -u
 			printf "initramfs was updated to allow changes take effect.\nA system reboot may be required.\n"
 		fi
 	fi
@@ -156,28 +158,33 @@ mute_other_possible_blacklist_usb_rules() { #comment out any existing blacklist 
 	do
 		while IFS= read -r file
 		do
-			if sudo sed -i -E "s/^.*\bblacklist\s*$module\b.*$/#blacklist $module/gI" "$file"
+			if sed -i -E "s/^.*\bblacklist\s*$module\b.*$/#blacklist $module/gI" "$file"
 			then
-				printf "file %s found and muted any blacklist $modules elements.\n"
+				printf "file %s found and muted any blacklist $module elements.\n" "$file"
 			fi
 		done < <(grep -ilE "^((\s)*blacklist(\s)*$module)" /etc/modprobe.d/*.conf --exclude="$CustomBlacklistFilePath" | sort -u)
 	done
 
 }
 
-usb_storage_block_on() { #1. unmount connected ext storage #2. power it/them off #3. unload uas/usb_storage modules #4.create "/etc/modprobe.d/blacklist.conf" w/ custom block rules
+usb_storage_block_on() { #1. unmount connected ext storage #2. power it/them off #3. unload uas/usb_storage modules #4.create "/etc/modprobe.d/blacklist.conf" w/ custom block rules #4. mask gvfs & usbmuxd services for mobile phones
+
+  
 
 	local modules=("uas" "usb_storage")
+	local gvfs_services=("gvfs-afc-volume-monitor.service" "gvfs-mtp-volume-monitor.service" "gvfs-gphoto2-volume-monitor.service")
+	local system_services=("usbmuxd.service")
+	local gvfs_processes=("gvfs-afc-volume-monitor" "gvfs-mtp-volume-monitor" "gvfs-gphoto2-volume-monitor" "gvfsd-afc" "gvfsd-mtp" "gvfsd-gphoto2")
 	local check_block_status=false
 
 
-	if [[ -z "$DevName" ]]
+	if [[ -z "$DevNameNo" ]]
 	then
 		check_block_status=false
 	else
 		while IFS= read -r file
 		do
-			if sudo umount /dev/$file
+			if umount /dev/$file
 			then
 				printf "Unmounted %s successfully.\n" "$file"
 			else
@@ -202,9 +209,9 @@ usb_storage_block_on() { #1. unmount connected ext storage #2. power it/them off
 	mute_install_n_remove_configs "${modules[@]}"
 
 
-	if [[ ! -e $CustomBlacklistFilePath ]] && [[ ! -s $CustomBlacklistFilePath ]]
+	if [[ ! -e $CustomBlacklistFilePath ]] || [[ ! -s $CustomBlacklistFilePath ]]
 	then
-		printf "#Block my USB Storage Devices\nblacklist uas\nblacklist usb_storage\n" | sudo tee -a $CustomBlacklistFilePath &> /dev/null
+		printf "#Block my USB Storage Devices\nblacklist uas\nblacklist usb_storage\n" | tee -a $CustomBlacklistFilePath &> /dev/null
 	fi
 
 
@@ -215,8 +222,49 @@ usb_storage_block_on() { #1. unmount connected ext storage #2. power it/them off
 	do
 		while IFS= read -r file
 		do
-			sudo sed -i -E "s/(\s)*(#)+(\s)*blacklist(\s)*$module/blacklist $module/gI" "$file"  
+			sed -i -E "s/(\s)*(#)+(\s)*blacklist(\s)*$module/blacklist $module/gI" "$file"  
 		done < <(grep -ilE "^((\s)*(#)+(\s)*blacklist(\s)*$module)" $CustomBlacklistFilePath)
+	done
+
+
+	for service in "${gvfs_services[@]}"
+	do
+		if systemctl --global mask "$service" &> /dev/null
+		then
+			printf "%s globally masked successfully.\n" "$service"
+		else
+			printf "Failed to globally mask %s.\n" "$service"
+			exit 1
+		fi
+	done
+
+
+	for service in "${system_services[@]}"
+	do
+		if systemctl mask --now "$service" &> /dev/null
+		then
+			printf "%s masked successfully.\n" "$service"
+		else
+			printf "Failed to mask %s.\n" "$service"
+			exit 1
+		fi
+	done
+
+
+	systemctl daemon-reload &> /dev/null
+
+	if [[ -n "$SUDO_USER" ]]
+	then
+		runuser -u "$SUDO_USER" -- env XDG_RUNTIME_DIR="/run/user/$(id -u "$SUDO_USER")" systemctl --user daemon-reload &> /dev/null
+	fi
+
+	for process in "${gvfs_processes[@]}"
+	do
+		if pgrep -f "$process" &> /dev/null
+		then
+			pkill -f "$process" &> /dev/null
+			printf "%s process terminated successfully.\n" "$process"
+		fi
 	done
 
 
@@ -224,7 +272,7 @@ usb_storage_block_on() { #1. unmount connected ext storage #2. power it/them off
 	then
 		for module in "${modules[@]}"
 		do
-    			if sudo modprobe -r "$module" &> /dev/null
+    			if modprobe -r "$module" &> /dev/null
     			then
         			printf "%s module, unloaded successfully.\n" "$module"
     			elif lsmod | grep -E "\b($module)\b" &> /dev/null
@@ -249,9 +297,13 @@ usb_storage_block_on() { #1. unmount connected ext storage #2. power it/them off
 
 }
 
-usb_storage_block_off() { #1.load uas/usb_storage modules #2.modify "/etc/custom-blacklist.conf" file
+usb_storage_block_off() { #1.load uas/usb_storage modules #2.modify "/etc/custom-blacklist.conf" file #3.unmask gvfs & usbmuxd services for mobile phones
+
+
 
 	local modules=("uas" "usb_storage")
+	local gvfs_services=("gvfs-afc-volume-monitor.service" "gvfs-mtp-volume-monitor.service" "gvfs-gphoto2-volume-monitor.service")
+	local system_services=("usbmuxd.service")
 	local check_unblock_status=false
 
 
@@ -259,7 +311,7 @@ usb_storage_block_off() { #1.load uas/usb_storage modules #2.modify "/etc/custom
 	then
 		for module in uas usb_storage
 		do
-    			if sudo modprobe "$module" &> /dev/null
+    			if modprobe "$module" &> /dev/null
     			then
         			printf "%s module loaded successfully.\n" "$module"
     			elif ! lsmod | grep -E "\b($module)\b" &> /dev/null
@@ -284,10 +336,41 @@ usb_storage_block_off() { #1.load uas/usb_storage modules #2.modify "/etc/custom
 	do
 		while IFS= read -r file
 		do
-			sudo sed -i -E "s/^.*\bblacklist\s*$module\b.*$/#blacklist $module/gI" "$file"
+			sed -i -E "s/^.*\bblacklist\s*$module\b.*$/#blacklist $module/gI" "$file"
 		done < <(grep -ilE "^((\s)*blacklist(\s)*$module)" $CustomBlacklistFilePath)
 	done
 
+
+	for service in "${gvfs_services[@]}"
+	do
+		if systemctl --global unmask "$service" &> /dev/null
+		then
+			printf "%s globally unmasked successfully.\n" "$service"
+		else
+			printf "Failed to globally unmask %s.\n" "$service"
+			exit 1
+		fi
+	done
+
+
+	for service in "${system_services[@]}"
+	do
+		if systemctl unmask "$service" &> /dev/null
+		then
+			printf "%s unmasked successfully.\n" "$service"
+		else
+			printf "Failed to unmask %s.\n" "$service"
+			exit 1
+		fi
+	done
+
+
+	systemctl daemon-reload &> /dev/null
+
+	if [[ -n "$SUDO_USER" ]]
+	then
+		runuser -u "$SUDO_USER" -- env XDG_RUNTIME_DIR="/run/user/$(id -u "$SUDO_USER")" systemctl --user daemon-reload &> /dev/null
+	fi
 
 	if [[ $check_unblock_status == true ]]
 	then
@@ -298,29 +381,102 @@ usb_storage_block_off() { #1.load uas/usb_storage modules #2.modify "/etc/custom
 
 }
 
-usb_storage_status() { #1.check for modules status #2.check for "/etc/modprobe.d/custom-blacklist.conf" file's content
+usb_storage_status() { #1.check for modules status #2.check for "/etc/modprobe.d/custom-blacklist.conf" file's content #3.check for gvfs & usbmuxd services for mobile phones
 
 	local module
 	local module_block
+	local modules=("uas" "usb_storage")
+	local gvfs_services=("gvfs-afc-volume-monitor.service" "gvfs-mtp-volume-monitor.service" "gvfs-gphoto2-volume-monitor.service")
+	local system_services=("usbmuxd.service")
+	local gvfs_block
+	local system_service_block
+	local check_module_status=true
+	local check_module_block_status=true
+	local check_module_unblock_status=false
+	local check_gvfs_status=true
+	local check_system_service_status=true
+
+	for item in "${modules[@]}"
+	do
+		if lsmod | grep -E "\b($item)\b" &> /dev/null
+		then
+			check_module_status=false
+			break
+		fi
+	done
 
 
-	if lsmod | grep -E "\b(uas)\b" &> /dev/null
+	if [[ $check_module_status == true ]]
 	then
- 		module="loaded"
- 	elif ! lsmod | grep -E "\b(uas)\b" &> /dev/null
- 	then
  		module="unloaded"
+	else
+ 		module="loaded"
 	fi
 
 	
-	if grep -E "^((\s)*blacklist(\s)*uas)" /etc/modprobe.d/*.conf &> /dev/null
+	for item in "${modules[@]}"
+	do
+		if grep -E "^((\s)*blacklist(\s)*$item)" /etc/modprobe.d/*.conf &> /dev/null
+		then
+			check_module_block_status=true
+		elif grep -E "^((\s)*(#)+(\s)*blacklist(\s)*$item)" /etc/modprobe.d/*.conf &> /dev/null
+		then
+			check_module_block_status=false
+			check_module_unblock_status=true
+			break
+		else
+			check_module_block_status=false
+			break
+		fi
+	done
+
+	if [[ $check_module_block_status == true ]]
 	then
 		module_block="blocked"
-	elif grep -E "^((\s)*(#)+(\s)*blacklist(\s)*uas)" /etc/modprobe.d/*.conf &> /dev/null
+	elif [[ $check_module_unblock_status == true ]]
 	then
 		module_block="unblocked"
 	else
 		module_block="configless"
+	fi
+
+	for service in "${gvfs_services[@]}"
+	do
+		if [[ "$(systemctl --global is-enabled "$service" 2> /dev/null)" == "masked" ]]
+		then
+			check_gvfs_status=true
+		else
+			check_gvfs_status=false
+			break
+		fi
+	done
+
+
+	if [[ $check_gvfs_status == true ]]
+	then
+		gvfs_block="blocked"
+	else
+		gvfs_block="unblocked"
+	fi
+
+
+	for service in "${system_services[@]}"
+	do
+		if [[ "$(systemctl is-enabled "$service" 2> /dev/null)" == "masked" ]]
+		then
+			check_system_service_status=true
+		else
+			check_system_service_status=false
+			break
+		fi
+	done
+
+
+	if [[ $check_system_service_status == true ]]
+	then
+		system_service_block="blocked"
+	else
+		system_service_block="unblocked"
 	fi
 
 
@@ -336,6 +492,22 @@ usb_storage_status() { #1.check for modules status #2.check for "/etc/modprobe.d
 			;;
 	esac
 
+
+	case "$gvfs_block:$system_service_block" in
+		blocked:blocked)
+			printf "Phone Storage Devices are blocked, and will remain blocked after user login.\n"
+			;;
+		blocked:unblocked)
+			printf "Android Phone Storage Devices are blocked, but iOS Phone Storage Devices are NOT fully blocked.\n"
+			;;
+		unblocked:blocked)
+			printf "Android Phone Storage Devices are NOT blocked, but iOS Phone Storage Devices are partially blocked.\n"
+			;;
+		unblocked:unblocked)
+			printf "Phone Storage Devices are NOT blocked, and will remain unblocked after user login.\n"
+			;;
+	esac
+
 }
 
 ### END-of-USB-Storage-Devices block/unblock configuration
@@ -343,6 +515,8 @@ usb_storage_status() { #1.check for modules status #2.check for "/etc/modprobe.d
 #### START-of-ARGS-OPTIONS
 
 #finalizing x2 ARGS = camera, usbstor AND x5 OPTIONS = -on, -off, --status, -h, --help
+
+[ "$EUID" -ne 0 ] && printf "Run with sudo.\n" && exit 1
 
 case "$1:$2" in
 	"camera:-on")
@@ -364,10 +538,10 @@ case "$1:$2" in
 		usb_storage_status
 		;;
 	"--help:"|"-h:")
-		printf "Usage: blockmy [DEVICE]... [OPTION]...\n\nBlocks USB Storage and/or Camera\n\nDEVICE:\n \n   camera\n \n   usbstor\n\nOPTION:\n \n  -on\t block DEVICE\n \n  -off\t unblock DEVICE\n \n  --status\t DEVICE's current block status\n \n  -h, --help\t Show this message\n\ne.g.  blockmy camera -on,  blockmy usbstor --status\n\n"
+		printf "Usage: %s [DEVICE]... [OPTION]...\n\nBlocks USB Storage and/or Camera\n\nDEVICE:\n \n   camera\n \n   usbstor\n\nOPTION:\n \n  -on\t block DEVICE\n \n  -off\t unblock DEVICE\n \n  --status\t DEVICE's current block status\n \n  -h, --help\t Show this message\n\ne.g.  %s camera -on,  %s usbstor --status\n\n" "$(basename "$0")" "$(basename "$0")" "$(basename "$0")"
 		;;
 	*)
-		printf "\nIncorrect Syntax...\n\nblockmy -h, --help for info\n\n"
+		printf "\nIncorrect Syntax...\n\n%s -h, --help for info\n\n" "$(basename "$0")"
 		;;
 esac
 
