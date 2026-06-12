@@ -44,7 +44,7 @@ camera_main() { #1.Check for existing camera #2.Check for existing camera block/
 	while IFS= read -r file
 	do
 		sed -i "s|^.*ATTR{idVendor}==\"$CamVendorID\",\s*ATTR{idProduct}==\"$CamProductID\",\s*ATTR{authorized}=\"[0-9]\".*$|#ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"0\"|gI" "$file" &> /dev/null;
-	done < <( grep -ilE "(ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"[0-9]\")" /etc/udev/rules.d/*.rules 2> /dev/null | sort -u)
+	done < <( grep -ilE "(ATTR{idVendor}==\"$CamVendorID\", ATTR{idProduct}==\"$CamProductID\", ATTR{authorized}=\"[0-9]\")" --exclude="$CamRulesFile" /etc/udev/rules.d/*.rules 2> /dev/null | sort -u)
 
 }
 
